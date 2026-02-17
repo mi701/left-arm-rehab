@@ -75,6 +75,7 @@
         let currentSet = 1;
         let isWork = true;
         let timerId = null;
+        let wakeLock = null; // スリープ防止状態を保持する変数
         let isPaused = false;
         let audioCtx;
 
@@ -109,36 +110,57 @@
             document.getElementById('progress-bar').style.width = `${((currentSet - 1) / TOTAL_SETS) * 100}%`;
         }
 
-        function startTimer() {
-            if (timerId) return;
-            document.getElementById('startBtn').style.display = 'none';
-            document.getElementById('pauseBtn').style.display = 'block';
-            if (!audioCtx) audioCtx = new AudioContext();
+async function startTimer() { // async を付ける（スリープ防止の待機に必要）
+    if (timerId) return;
 
-            timerId = setInterval(() => {
-                if (isPaused) return;
-
-                timeLeft--;
-                if (timeLeft < 0) {
-                    beep(isWork ? 523.25 : 659.25);
-                    if (isWork) {
-                        isWork = false;
-                        timeLeft = REST_TIME;
-                    } else {
-                        isWork = true;
-                        currentSet++;
-                        timeLeft = WORK_TIME;
-                    }
-                }
-                if (currentSet > TOTAL_SETS) {
-                    clearInterval(timerId);
-                    document.getElementById('status').textContent = "お疲れ様でした";
-                    document.getElementById('pauseBtn').disabled = true;
-                    return;
-                }
-                updateDisplay();
-            }, 1000);
+    // --- ここから追加：スリープ防止のリクエスト ---
+    if ('wakeLock' in navigator) {
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            console.log('スリープ防止が有効になりました');
+        } catch (err) {
+            console.error(`${err.name}, ${err.message}`);
         }
+    }
+    // --- ここまで ---
+
+    document.getElementById('startBtn').style.display = 'none';
+    document.getElementById('pauseBtn').style.display = 'block';
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    timerId = setInterval(() => {
+        if (isPaused) return;
+
+        timeLeft--;
+        if (timeLeft < 0) {
+            beep(isWork ? 523.25 : 659.25);
+            if (isWork) {
+                isWork = false;
+                timeLeft = REST_TIME;
+            } else {
+                isWork = true;
+                currentSet++;
+                timeLeft = WORK_TIME;
+            }
+        }
+        if (currentSet > TOTAL_SETS) {
+            clearInterval(timerId);
+            
+            // --- 追加：終了時にスリープ防止を解除 ---
+            if (wakeLock !== null) {
+                wakeLock.release();
+                wakeLock = null;
+                console.log('スリープ防止を解除しました');
+            }
+            // --- ここまで ---
+
+            document.getElementById('status').textContent = "お疲れ様でした";
+            document.getElementById('pauseBtn').disabled = true;
+            return;
+        }
+        updateDisplay();
+    }, 1000);
+}
 
         function togglePause() {
             isPaused = !isPaused;
