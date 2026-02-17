@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rehab Timer with Pause</title>
+    <style>
+        :root {
+            --bg-color: #e0ecef;
+            --text-main: #2c3e50;
+            --accent-work: #d98880;
+            --accent-rest: #7fb3d5;
+            --btn-bg: #fff;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Meiryo, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            justify-content: center; 
+            height: 100vh; 
+            margin: 0;
+            background: var(--bg-color); 
+            color: var(--text-main); 
+        }
+
+        #status { font-size: 2rem; font-weight: 600; }
+        #timer { font-size: 10rem; font-weight: 300; margin: 10px 0; font-variant-numeric: tabular-nums; }
+        #info { font-size: 1.5rem; opacity: 0.8; margin-bottom: 30px; }
+
+        #progress-container { width: 70%; height: 12px; background: #cedade; border-radius: 10px; overflow: hidden; margin-bottom: 40px; }
+        #progress-bar { width: 0%; height: 100%; background: #85c1e9; transition: width 0.3s ease; }
+
+        .controls { display: flex; gap: 20px; }
+
+        button { 
+            padding: 12px 40px; 
+            font-size: 1.2rem; 
+            cursor: pointer; 
+            border: 2px solid var(--text-main); 
+            border-radius: 8px;
+            background: var(--btn-bg);
+            color: var(--text-main);
+            min-width: 150px;
+        }
+        button:active { transform: scale(0.98); }
+        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        
+        /* 一時停止中の色 */
+        .paused #timer { color: #95a5a6; }
+    </style>
+</head>
+<body>
+
+    <div id="status">準備中</div>
+    <div id="timer">02:00</div>
+    <div id="info">セット 1 / 10</div>
+    
+    <div id="progress-container">
+        <div id="progress-bar"></div>
+    </div>
+
+    <div class="controls">
+        <button onclick="startTimer()" id="startBtn">開始</button>
+        <button onclick="togglePause()" id="pauseBtn" style="display: none;">一時停止</button>
+    </div>
+
+    <script>
+        const WORK_TIME = 120;
+        const REST_TIME = 60;
+        const TOTAL_SETS = 10;
+
+        let timeLeft = WORK_TIME;
+        let currentSet = 1;
+        let isWork = true;
+        let timerId = null;
+        let isPaused = false;
+        let audioCtx;
+
+        function beep(freq) {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = "sine";
+            osc.frequency.value = freq;
+            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.4);
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.4);
+        }
+
+        function updateDisplay() {
+            const m = Math.floor(timeLeft / 60);
+            const s = timeLeft % 60;
+            document.getElementById('timer').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            
+            const statusEl = document.getElementById('status');
+            if (isWork) {
+                statusEl.textContent = "運動中";
+                statusEl.style.color = "var(--accent-work)";
+            } else {
+                statusEl.textContent = "休憩中";
+                statusEl.style.color = "var(--accent-rest)";
+            }
+            document.getElementById('info').textContent = `セット ${currentSet} / ${TOTAL_SETS}`;
+            document.getElementById('progress-bar').style.width = `${((currentSet - 1) / TOTAL_SETS) * 100}%`;
+        }
+
+        function startTimer() {
+            if (timerId) return;
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('pauseBtn').style.display = 'block';
+            if (!audioCtx) audioCtx = new AudioContext();
+
+            timerId = setInterval(() => {
+                if (isPaused) return;
+
+                timeLeft--;
+                if (timeLeft < 0) {
+                    beep(isWork ? 523.25 : 659.25);
+                    if (isWork) {
+                        isWork = false;
+                        timeLeft = REST_TIME;
+                    } else {
+                        isWork = true;
+                        currentSet++;
+                        timeLeft = WORK_TIME;
+                    }
+                }
+                if (currentSet > TOTAL_SETS) {
+                    clearInterval(timerId);
+                    document.getElementById('status').textContent = "お疲れ様でした";
+                    document.getElementById('pauseBtn').disabled = true;
+                    return;
+                }
+                updateDisplay();
+            }, 1000);
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            const btn = document.getElementById('pauseBtn');
+            if (isPaused) {
+                btn.textContent = "再開";
+                document.body.classList.add('paused');
+            } else {
+                btn.textContent = "一時停止";
+                document.body.classList.remove('paused');
+            }
+        }
+    </script>
+</body>
+</html>
