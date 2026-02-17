@@ -41,8 +41,9 @@
 
         #info { font-size: 1.5rem; opacity: 0.8; margin-bottom: 30px; }
 
+        /* プログレスバー */
         #progress-container { width: 70%; height: 12px; background: #cedade; border-radius: 10px; overflow: hidden; margin-bottom: 40px; }
-        #progress-bar { width: 0%; height: 100%; background: #85c1e9; transition: width 0.3s ease; }
+        #progress-bar { width: 0%; height: 100%; background: #85c1e9; transition: width 1s linear; }
 
         .controls { display: flex; gap: 20px; }
 
@@ -61,9 +62,17 @@
         button:disabled { opacity: 0.3; cursor: not-allowed; }
         
         .paused #timer { color: #95a5a6; } /* 一時停止中の色 */
+
+        /* 完了時の特別なスタイル */
+    .finished #status { 
+        font-size: 3.5rem; 
+        color: #27ae60; /* 達成感のあるグリーン */
+        transition: all 0.5s ease;
+    }
+    .finished { background-color: #d5f5e3; transition: background 1s; } /* 背景も優しくお祝い */
     </style>
 </head>
-<body class="">
+<body>
 
     <div id="status">準備中</div>
     <div id="timer">02:00</div>
@@ -79,10 +88,12 @@
     </div>
 
     <script>
-        const WORK_TIME = 120;
-        const REST_TIME = 60;
-        const TOTAL_SETS = 10;
+        // 設定値
+        const WORK_TIME = 120; // 運動時間（秒）
+        const REST_TIME = 60;  // 休憩時間（秒）
+        const TOTAL_SETS = 10; // 合計セット数
 
+        // 状態管理用変数
         let timeLeft = WORK_TIME;
         let currentSet = 1;
         let isWork = true;
@@ -91,7 +102,10 @@
         let isPaused = false;
         let audioCtx;
 
-        function beep(freq) {
+        /**
+         * 音を鳴らす関数
+         */
+        function beep(freq, duration = 0.4) {
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
@@ -100,16 +114,22 @@
             osc.type = "sine";
             osc.frequency.value = freq;
             gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.4);
+            gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
             osc.start();
-            osc.stop(audioCtx.currentTime + 0.4);
+            osc.stop(audioCtx.currentTime + duration);
         }
 
-        function updateDisplay() {
+        /**
+         * 画面表示の更新
+         */
+function updateDisplay() {
             const m = Math.floor(timeLeft / 60);
             const s = timeLeft % 60;
             document.getElementById('timer').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             
+            // 【修正】もし完了状態（finishedクラスがある）なら、ここから下の文字更新はしない
+            if (document.body.classList.contains('finished')) return;
+
             const statusEl = document.getElementById('status');
             if (isWork) {
                 statusEl.textContent = "運動中";
@@ -119,17 +139,23 @@
                 statusEl.style.color = "var(--accent-rest)";
             }
             document.getElementById('info').textContent = `セット ${currentSet} / ${TOTAL_SETS}`;
-            document.getElementById('progress-bar').style.width = `${((currentSet - 1) / TOTAL_SETS) * 100}%`;
+            
+            const totalSecondsInPhase = isWork ? WORK_TIME : REST_TIME;
+            const phaseProgress = (totalSecondsInPhase - timeLeft) / totalSecondsInPhase;
+            const totalProgress = ((currentSet - 1) + phaseProgress) / TOTAL_SETS * 100;
+            document.getElementById('progress-bar').style.width = `${totalProgress}%`;
         }
 
+        /**
+         * タイマーの開始
+         */
         async function startTimer() {
             if (timerId) return;
 
-            // スリープ防止リクエスト
+            // スリープ防止（Wake Lock API）のリクエスト
             if ('wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
-                    console.log('Wake Lock active');
                 } catch (err) {
                     console.error(`${err.name}, ${err.message}`);
                 }
@@ -143,8 +169,18 @@
                 if (isPaused) return;
 
                 timeLeft--;
+                
+                // 時間切れの判定
                 if (timeLeft < 0) {
+                    // 10セット目の運動が終わったら即終了
+                    if (isWork && currentSet === TOTAL_SETS) {
+                        clearInterval(timerId);
+                        finishTimer();
+                        return;
+                    }
+
                     beep(isWork ? 523.25 : 659.25);
+                    
                     if (isWork) {
                         isWork = false;
                         timeLeft = REST_TIME;
@@ -154,19 +190,43 @@
                         timeLeft = WORK_TIME;
                     }
                 }
-                if (currentSet > TOTAL_SETS) {
-                    clearInterval(timerId);
-                    if (wakeLock !== null) {
-                        wakeLock.release().then(() => wakeLock = null);
-                    }
-                    document.getElementById('status').textContent = "お疲れ様でした";
-                    document.getElementById('pauseBtn').disabled = true;
-                    return;
-                }
                 updateDisplay();
             }, 1000);
         }
 
+        /**
+         * 終了時の処理
+         */
+function finishTimer() {
+            beep(880, 0.8); 
+            
+            if (wakeLock !== null) {
+                wakeLock.release().then(() => wakeLock = null);
+            }
+
+            timeLeft = 0;
+            
+            // 完了クラスを追加（これを合図にupdateDisplayが文字更新を止める）
+            document.body.classList.add('finished');
+            
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = "🎉 1セット完了！";
+            // ここで強制的に色を変える必要はないですが、念のため
+            statusEl.style.color = "#27ae60"; 
+            
+            document.getElementById('progress-bar').style.width = "100%";
+            
+            // ボタンの入れ替え
+            document.getElementById('pauseBtn').style.display = 'none';
+            const btnContainer = document.querySelector('.controls');
+            // ボタンを押すとリロードして最初に戻る
+            btnContainer.innerHTML = '<button onclick="location.reload()" style="border-color:#27ae60; color:#27ae60;">もう一度行う</button>';
+            
+            updateDisplay(); // 時間を00:00にするために呼ぶ（文字は上書きされない）
+        }
+        /**
+         * 一時停止の切り替え
+         */
         function togglePause() {
             isPaused = !isPaused;
             const btn = document.getElementById('pauseBtn');
