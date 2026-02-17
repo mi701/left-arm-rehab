@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rehab Timer with Pause</title>
+    <title>Rehab Timer - Medical Edition</title>
     <style>
         :root {
-            --bg-color: #e0ecef;
-            --text-main: #2c3e50;
-            --accent-work: #d98880;
-            --accent-rest: #7fb3d5;
+            --bg-color: #e0ecef;       /* 清潔感のある水色 */
+            --text-main: #2c3e50;      /* 濃いネイビー */
+            --accent-work: #d98880;    /* 落ち着いた赤 */
+            --accent-rest: #7fb3d5;    /* 落ち着いた青 */
             --btn-bg: #fff;
         }
 
@@ -23,10 +23,22 @@
             margin: 0;
             background: var(--bg-color); 
             color: var(--text-main); 
+            overflow: hidden; /* スクロール防止 */
         }
 
-        #status { font-size: 2rem; font-weight: 600; }
-        #timer { font-size: 10rem; font-weight: 300; margin: 10px 0; font-variant-numeric: tabular-nums; }
+        #status { font-size: 2rem; font-weight: 600; letter-spacing: 2px; }
+
+        /* タイマー：スマホでは画面幅に合わせ、PCではデカすぎないように調整 */
+        #timer { 
+            font-size: 25vw; 
+            font-weight: 300; 
+            margin: 10px 0; 
+            font-variant-numeric: tabular-nums; 
+        }
+        @media (min-width: 600px) {
+            #timer { font-size: 10rem; }
+        }
+
         #info { font-size: 1.5rem; opacity: 0.8; margin-bottom: 30px; }
 
         #progress-container { width: 70%; height: 12px; background: #cedade; border-radius: 10px; overflow: hidden; margin-bottom: 40px; }
@@ -43,15 +55,15 @@
             background: var(--btn-bg);
             color: var(--text-main);
             min-width: 150px;
+            transition: all 0.2s;
         }
-        button:active { transform: scale(0.98); }
+        button:active { transform: scale(0.95); }
         button:disabled { opacity: 0.3; cursor: not-allowed; }
         
-        /* 一時停止中の色 */
-        .paused #timer { color: #95a5a6; }
+        .paused #timer { color: #95a5a6; } /* 一時停止中の色 */
     </style>
 </head>
-<body>
+<body class="">
 
     <div id="status">準備中</div>
     <div id="timer">02:00</div>
@@ -75,7 +87,7 @@
         let currentSet = 1;
         let isWork = true;
         let timerId = null;
-        let wakeLock = null; // スリープ防止状態を保持する変数
+        let wakeLock = null; 
         let isPaused = false;
         let audioCtx;
 
@@ -110,57 +122,50 @@
             document.getElementById('progress-bar').style.width = `${((currentSet - 1) / TOTAL_SETS) * 100}%`;
         }
 
-async function startTimer() { // async を付ける（スリープ防止の待機に必要）
-    if (timerId) return;
+        async function startTimer() {
+            if (timerId) return;
 
-    // --- ここから追加：スリープ防止のリクエスト ---
-    if ('wakeLock' in navigator) {
-        try {
-            wakeLock = await navigator.wakeLock.request('screen');
-            console.log('スリープ防止が有効になりました');
-        } catch (err) {
-            console.error(`${err.name}, ${err.message}`);
-        }
-    }
-    // --- ここまで ---
-
-    document.getElementById('startBtn').style.display = 'none';
-    document.getElementById('pauseBtn').style.display = 'block';
-    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    timerId = setInterval(() => {
-        if (isPaused) return;
-
-        timeLeft--;
-        if (timeLeft < 0) {
-            beep(isWork ? 523.25 : 659.25);
-            if (isWork) {
-                isWork = false;
-                timeLeft = REST_TIME;
-            } else {
-                isWork = true;
-                currentSet++;
-                timeLeft = WORK_TIME;
+            // スリープ防止リクエスト
+            if ('wakeLock' in navigator) {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                    console.log('Wake Lock active');
+                } catch (err) {
+                    console.error(`${err.name}, ${err.message}`);
+                }
             }
-        }
-        if (currentSet > TOTAL_SETS) {
-            clearInterval(timerId);
-            
-            // --- 追加：終了時にスリープ防止を解除 ---
-            if (wakeLock !== null) {
-                wakeLock.release();
-                wakeLock = null;
-                console.log('スリープ防止を解除しました');
-            }
-            // --- ここまで ---
 
-            document.getElementById('status').textContent = "お疲れ様でした";
-            document.getElementById('pauseBtn').disabled = true;
-            return;
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('pauseBtn').style.display = 'block';
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+            timerId = setInterval(() => {
+                if (isPaused) return;
+
+                timeLeft--;
+                if (timeLeft < 0) {
+                    beep(isWork ? 523.25 : 659.25);
+                    if (isWork) {
+                        isWork = false;
+                        timeLeft = REST_TIME;
+                    } else {
+                        isWork = true;
+                        currentSet++;
+                        timeLeft = WORK_TIME;
+                    }
+                }
+                if (currentSet > TOTAL_SETS) {
+                    clearInterval(timerId);
+                    if (wakeLock !== null) {
+                        wakeLock.release().then(() => wakeLock = null);
+                    }
+                    document.getElementById('status').textContent = "お疲れ様でした";
+                    document.getElementById('pauseBtn').disabled = true;
+                    return;
+                }
+                updateDisplay();
+            }, 1000);
         }
-        updateDisplay();
-    }, 1000);
-}
 
         function togglePause() {
             isPaused = !isPaused;
