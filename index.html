@@ -123,7 +123,7 @@
         /**
          * 画面表示の更新
          */
-function updateDisplay() {
+        function updateDisplay() {
             const m = Math.floor(timeLeft / 60);
             const s = timeLeft % 60;
             document.getElementById('timer').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
@@ -198,7 +198,7 @@ function updateDisplay() {
         /**
          * 終了時の処理
          */
-function finishTimer() {
+        function finishTimer() {
             beep(880, 0.8); 
             
             if (wakeLock !== null) {
