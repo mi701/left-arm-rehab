@@ -6,16 +6,14 @@
     <title>リハビリタイマー - 負荷軽減</title>
     <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' height='48' viewBox='0 -960 960 960' width='48' fill='%232c3e50'%3E%3Cpath d='M360-840v-60h240v60H360Zm120 440Zm0 320q-75 0-140.5-28.5t-114-77q-48.5-48.5-77-114T120-440q0-75 28.5-140.5t77-114q48.5-48.5 114-77T480-800q71 0 133 25t111 71l44-44 42 42-42 42q40 43 62 96t22 110q0 75-28.5 140.5t-77 114q-48.5 48.5-114 77T480-80q-68 0-128.5-23T244-168l42-42q39 31 85.5 46.5T480-148q121 0 206.5-85.5T772-440q0-121-85.5-206.5T480-732q-121 0-206.5 85.5T188-440q0 58 21.5 110.5T270-238l-42 42q-48-50-73-114.5T130-450q0-141 104.5-245.5T480-800q141 0 245.5 104.5T830-450q0 141-104.5 245.5T480-100Zm0-120q-83 0-141.5-58.5T280-420q0-83 58.5-141.5T480-620q83 0 141.5 58.5T680-420q0 83-58.5 141.5T480-300Zm0-60q58 0 99-41t41-99q0-58-41-99t-99-41q-58 0-99 41t-41 99q0 58 41 99t99 41Zm0-80Z'/%3E%3C/svg%3E">
     <style>
-        /* 色の定義（カスタムプロパティ） */
         :root {
-            --bg-color: #e0ecef;       /* 背景色：清潔感のある水色 */
-            --text-main: #2c3e50;      /* メインテキスト色：濃いネイビー */
-            --accent-work: #d98880;    /* 運動中のアクセント色：落ち着いた赤 */
-            --accent-rest: #7fb3d5;    /* 休憩中のアクセント色：落ち着いた青 */
-            --btn-bg: #fff;            /* ボタンの背景色：白 */
+            --bg-color: #e0ecef;
+            --text-main: #2c3e50;
+            --accent-work: #d98880;
+            --accent-rest: #7fb3d5;
+            --btn-bg: #fff;
         }
 
-        /* ページ全体の基本スタイル */
         body { 
             font-family: 'Segoe UI', Meiryo, sans-serif; 
             display: flex; 
@@ -26,36 +24,29 @@
             margin: 0;
             background: var(--bg-color); 
             color: var(--text-main); 
-            overflow: hidden; /* 画面のスクロールを防ぐ */
+            overflow: hidden; 
         }
 
-        /* ステータス表示（準備中、運動中など）のスタイル */
         #status { font-size: 2rem; font-weight: 600; letter-spacing: 2px; }
 
-        /* タイマー時刻表示のスタイル：スマホでは画面幅に合わせ、PCでは上限を設ける */
         #timer { 
             font-size: 25vw; 
             font-weight: 300; 
             margin: 10px 0; 
-            font-variant-numeric: tabular-nums; /* 数字の幅を等間隔にする */
+            font-variant-numeric: tabular-nums; 
         }
         @media (min-width: 600px) {
             #timer { font-size: 10rem; }
         }
 
-        /* セット数表示のスタイル */
         #info { font-size: 1.5rem; opacity: 0.8; margin-bottom: 30px; }
 
-        /* プログレスバー（進行状況）の枠組み */
         #progress-container { width: 70%; height: 12px; background: #cedade; border-radius: 10px; overflow: hidden; margin-bottom: 40px; }
-        /* プログレスバーの伸びる部分 */
         #progress-bar { width: 0%; height: 100%; background: #85c1e9; transition: width 1s linear; }
 
-        /* ボタンやリンクを囲むコンテナ */
         .controls { display: flex; flex-direction: column; align-items: center; }
         .btn-group { display: flex; gap: 20px; }
 
-        /* ボタンの共通スタイル */
         button { 
             padding: 12px 40px; 
             font-size: 1.2rem; 
@@ -67,19 +58,15 @@
             min-width: 150px;
             transition: all 0.2s;
         }
-        button:active { transform: scale(0.95); } /* 押したときのへこみ効果 */
-        button:disabled { opacity: 0.3; cursor: not-allowed; }
+        button:active { transform: scale(0.95); }
         
-        /* 一時停止中のタイマー文字色 */
         .paused #timer { color: #95a5a6; } 
 
-        /* 全セット完了時のステータススタイル */
         .finished #status { 
             font-size: 3.5rem; 
             color: #27ae60; 
             transition: all 0.5s ease;
         }
-        /* 全セット完了時の背景色アニメーション */
         .finished { background-color: #d5f5e3; transition: background 1s; } 
     </style>
 </head>
@@ -103,66 +90,44 @@
     </div>
 
     <script>
-        // -----------------------------------------
-        // タイマーの設定値（負荷軽減用）
-        // -----------------------------------------
-        const WORK_TIME = 60;  // 運動時間（秒）を60秒に設定
-        const REST_TIME = 60;  // 休憩時間（秒）を60秒に設定
-        const TOTAL_SETS = 20; // 合計セット数を20回に設定
+        // 設定値
+        const WORK_TIME = 60;
+        const REST_TIME = 60;
+        const TOTAL_SETS = 20;
 
-        // -----------------------------------------
-        // 状態管理用の変数
-        // -----------------------------------------
-        let timeLeft = WORK_TIME; // 現在の残り時間
-        let currentSet = 1;       // 現在のセット数
-        let isWork = true;        // 運動中かどうかを判定するフラグ
-        let timerId = null;       // setIntervalを管理するID
-        let wakeLock = null;      // 画面の自動スリープを防ぐための変数
-        let isPaused = false;     // 一時停止中かどうかのフラグ
-        let audioCtx;             // Web Audio APIのコンテキスト
+        let timeLeft = WORK_TIME;
+        let currentSet = 1;
+        let isWork = true;
+        let timerId = null;
+        let wakeLock = null; 
+        let isPaused = false;
+        let audioCtx;
 
-        /**
-         * 指定した周波数と長さでビープ音を鳴らす関数
-         * @param {number} freq - 周波数(Hz)
-         * @param {number} duration - 持続時間(秒)
-         */
         function beep(freq, duration = 0.4) {
-            // AudioContextが未作成なら初期化する（ブラウザの制限回避のためユーザー操作時に作成）
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            
             osc.connect(gain);
             gain.connect(audioCtx.destination);
-            
-            // 耳に優しい三角波を設定
             osc.type = "triangle";
             osc.frequency.value = freq;
-            
-            // 音量の減衰（フェードアウト）を設定して自然な音にする
             gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + duration);
-            
-            // 音の再生を開始し、指定時間後に停止する
             osc.start();
             osc.stop(audioCtx.currentTime + duration);
         }
 
         /**
-         * 画面の表示（時間、テキスト、プログレスバー）を更新する関数
+         * 画面表示の更新（プログレスバーの計算を修正）
          */
         function updateDisplay() {
-            // 残り秒数を分と秒に変換してゼロ埋めする
             const m = Math.floor(timeLeft / 60);
             const s = timeLeft % 60;
             document.getElementById('timer').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             
-            // 完了状態なら、ステータス文字の更新をスキップする
             if (document.body.classList.contains('finished')) return;
 
             const statusEl = document.getElementById('status');
-            // 運動中と休憩中で表示する文字と色を切り替える
             if (isWork) {
                 statusEl.textContent = "運動中";
                 statusEl.style.color = "var(--accent-work)";
@@ -170,25 +135,32 @@
                 statusEl.textContent = "休憩中";
                 statusEl.style.color = "var(--accent-rest)";
             }
-            
-            // 現在のセット数を更新
             document.getElementById('info').textContent = `セット ${currentSet} / ${TOTAL_SETS}`;
             
-            // プログレスバーの進捗率を計算して幅を更新
-            const totalSecondsInPhase = isWork ? WORK_TIME : REST_TIME;
-            const phaseProgress = (totalSecondsInPhase - timeLeft) / totalSecondsInPhase;
+            // --- プログレスバーの修正計算 ---
+            // 1セット全体の合計時間
+            const setTotalTime = WORK_TIME + REST_TIME;
+            
+            // 現在のセット内で経過した秒数を合算する
+            let elapsedInSet;
+            if (isWork) {
+                // 運動中は「そのフェーズの経過時間」のみ
+                elapsedInSet = WORK_TIME - timeLeft;
+            } else {
+                // 休憩中は「運動時間すべて」＋「休憩の経過時間」
+                elapsedInSet = WORK_TIME + (REST_TIME - timeLeft);
+            }
+            
+            // 1セット内での割合
+            const phaseProgress = elapsedInSet / setTotalTime;
+            // 全体（20セット）の中での位置
             const totalProgress = ((currentSet - 1) + phaseProgress) / TOTAL_SETS * 100;
             document.getElementById('progress-bar').style.width = `${totalProgress}%`;
         }
 
-        /**
-         * タイマーを開始する関数
-         */
         async function startTimer() {
-            // 既にタイマーが動いている場合は何もしない
             if (timerId) return;
 
-            // Wake Lock APIを使って、リハビリ中に画面が暗くなるのを防ぐ
             if ('wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
@@ -197,32 +169,24 @@
                 }
             }
 
-            // ボタンの表示を切り替える
             document.getElementById('startBtn').style.display = 'none';
             document.getElementById('pauseBtn').style.display = 'block';
-            
-            // AudioContextの初期化
             if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 
-            // 1秒ごとに処理を実行
             timerId = setInterval(() => {
-                if (isPaused) return; // 一時停止中はカウントダウンしない
+                if (isPaused) return;
 
                 timeLeft--;
                 
-                // 残り時間がゼロ未満になったときの処理（フェーズ切り替え）
                 if (timeLeft < 0) {
-                    // 最終セットの運動が終わった場合は完了処理へ
                     if (isWork && currentSet === TOTAL_SETS) {
                         clearInterval(timerId);
                         finishTimer();
                         return;
                     }
 
-                    // フェーズ切り替えの音を鳴らす
                     beep(isWork ? 587.33 : 740.00);
                     
-                    // 運動と休憩を切り替えて時間をリセット
                     if (isWork) {
                         isWork = false;
                         timeLeft = REST_TIME;
@@ -232,25 +196,18 @@
                         timeLeft = WORK_TIME;
                     }
                 }
-                // 画面表示を更新
                 updateDisplay();
             }, 1000);
         }
 
-        /**
-         * 全セット完了時の処理を行う関数
-         */
         function finishTimer() {
-            // 完了の音を少し長く鳴らす
             beep(880, 0.8); 
             
-            // スリープ防止を解除する
             if (wakeLock !== null) {
                 wakeLock.release().then(() => wakeLock = null);
             }
 
             timeLeft = 0;
-            // 完了用のCSSクラスをbodyに追加して見た目を変える
             document.body.classList.add('finished');
             
             const statusEl = document.getElementById('status');
@@ -259,7 +216,6 @@
             
             document.getElementById('progress-bar').style.width = "100%";
             
-            // 一時停止ボタンを隠し、「もう一度行う」ボタンを表示する
             document.getElementById('pauseBtn').style.display = 'none';
             const btnContainer = document.querySelector('.btn-group');
             btnContainer.innerHTML = '<button onclick="location.reload()" style="border-color:#27ae60; color:#27ae60;">もう一度行う</button>';
@@ -267,19 +223,13 @@
             updateDisplay(); 
         }
 
-        /**
-         * タイマーの一時停止／再開を切り替える関数
-         */
         function togglePause() {
             isPaused = !isPaused;
             const btn = document.getElementById('pauseBtn');
-            
             if (isPaused) {
-                // 一時停止状態にする
                 btn.textContent = "再開";
                 document.body.classList.add('paused');
             } else {
-                // 再開状態にする
                 btn.textContent = "一時停止";
                 document.body.classList.remove('paused');
             }
