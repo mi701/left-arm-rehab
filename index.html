@@ -65,12 +65,12 @@
         .paused #timer { color: #95a5a6; } /* 一時停止中の色 */
 
         /* 完了時の特別なスタイル */
-    .finished #status { 
-        font-size: 3.5rem; 
-        color: #27ae60; /* 達成感のあるグリーン */
-        transition: all 0.5s ease;
-    }
-    .finished { background-color: #d5f5e3; transition: background 1s; } /* 背景も優しくお祝い */
+        .finished #status { 
+            font-size: 3.5rem; 
+            color: #27ae60; /* 達成感のあるグリーン */
+            transition: all 0.5s ease;
+        }
+        .finished { background-color: #d5f5e3; transition: background 1s; } /* 背景も優しくお祝い */
     </style>
 </head>
 <body>
@@ -91,8 +91,11 @@
         
         <a href="lite.html" style="margin-top: 30px; color: #7f8c8d; text-decoration: none; font-size: 0.9rem; border-bottom: 1px solid #7f8c8d;">→ 負荷軽減メニュー (1分×20) へ</a>
     </div>
+
     <script>
+        // -----------------------------------------
         // 設定値
+        // -----------------------------------------
         const WORK_TIME = 120; // 運動時間（秒）
         const REST_TIME = 60;  // 休憩時間（秒）
         const TOTAL_SETS = 10; // 合計セット数
@@ -124,14 +127,13 @@
         }
 
         /**
-         * 画面表示の更新
+         * 画面表示の更新（プログレスバー計算を修正）
          */
         function updateDisplay() {
             const m = Math.floor(timeLeft / 60);
             const s = timeLeft % 60;
             document.getElementById('timer').textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
             
-            // 【修正】もし完了状態（finishedクラスがある）なら、ここから下の文字更新はしない
             if (document.body.classList.contains('finished')) return;
 
             const statusEl = document.getElementById('status');
@@ -144,8 +146,24 @@
             }
             document.getElementById('info').textContent = `セット ${currentSet} / ${TOTAL_SETS}`;
             
-            const totalSecondsInPhase = isWork ? WORK_TIME : REST_TIME;
-            const phaseProgress = (totalSecondsInPhase - timeLeft) / totalSecondsInPhase;
+            // --- プログレスバーの修正ロジック ---
+            // 1セットの合計時間（運動＋休憩）
+            const setTotalTime = WORK_TIME + REST_TIME;
+            
+            // 現在のセットで経過した秒数を計算
+            let elapsedInSet;
+            if (isWork) {
+                // 運動中は単純に経過した秒数
+                elapsedInSet = WORK_TIME - timeLeft;
+            } else {
+                // 休憩中は、完了した運動時間 ＋ 休憩の経過時間
+                elapsedInSet = WORK_TIME + (REST_TIME - timeLeft);
+            }
+            
+            // 1セット内での進捗割合
+            const phaseProgress = elapsedInSet / setTotalTime;
+            
+            // 全体セット数の中での進捗率（%）を計算
             const totalProgress = ((currentSet - 1) + phaseProgress) / TOTAL_SETS * 100;
             document.getElementById('progress-bar').style.width = `${totalProgress}%`;
         }
@@ -156,7 +174,6 @@
         async function startTimer() {
             if (timerId) return;
 
-            // スリープ防止（Wake Lock API）のリクエスト
             if ('wakeLock' in navigator) {
                 try {
                     wakeLock = await navigator.wakeLock.request('screen');
@@ -174,9 +191,7 @@
 
                 timeLeft--;
                 
-                // 時間切れの判定
                 if (timeLeft < 0) {
-                    // 10セット目の運動が終わったら即終了
                     if (isWork && currentSet === TOTAL_SETS) {
                         clearInterval(timerId);
                         finishTimer();
@@ -209,25 +224,21 @@
             }
 
             timeLeft = 0;
-            
-            // 完了クラスを追加（これを合図にupdateDisplayが文字更新を止める）
             document.body.classList.add('finished');
             
             const statusEl = document.getElementById('status');
             statusEl.textContent = "🎉 完了！";
-            // ここで強制的に色を変える必要はないですが、念のため
             statusEl.style.color = "#27ae60"; 
             
             document.getElementById('progress-bar').style.width = "100%";
             
-            // ボタンの入れ替え
             document.getElementById('pauseBtn').style.display = 'none';
             const btnContainer = document.querySelector('.controls');
-            // ボタンを押すとリロードして最初に戻る
             btnContainer.innerHTML = '<button onclick="location.reload()" style="border-color:#27ae60; color:#27ae60;">もう一度行う</button>';
             
-            updateDisplay(); // 時間を00:00にするために呼ぶ（文字は上書きされない）
+            updateDisplay(); 
         }
+
         /**
          * 一時停止の切り替え
          */
